@@ -1,0 +1,29 @@
+# fly.toml app configuration file generated for ambiant-scan on 2026-02-18T04:24:56-05:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'ambiant-scan'
+primary_region = 'yyz'
+
+[build]
+
+[env]
+  CACHE_TTL_SECONDS = '600'
+  GEO_CACHE_TTL_SECONDS = '86400'
+  MAX_CACHE_ENTRIES = '5000'
+  PORT = '3400'
+
+[http_service]
+  internal_port = 3400
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '256mb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256
