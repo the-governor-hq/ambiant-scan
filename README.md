@@ -1,7 +1,6 @@
 # 🌍 Ambiant Scan
 
 **Zero-Dependency single-file Environmental Scraper & Modeler**
-Part of [The Governor HQ](../README.md) suite.
 
 A single-file Node.js  that scrapes legitimate free APIs and returns normalized environmental data: temperature, air quality, UV index, humidity, wind, atmospheric pressure, and more.
 
