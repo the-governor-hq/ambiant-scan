@@ -17,6 +17,7 @@
  *   GET /scan?lat=45.5&lon=-73.6          → full environmental scan
  *   GET /scan?city=Montreal                → scan by city name
  *   GET /health                            → health check
+ *   GET /geoip                             → caller geolocation via IP
  *   GET /cache/stats                       → cache statistics
  *   DELETE /cache                          → flush all caches
  * 
@@ -114,6 +115,7 @@ class TTLCache {
 const geoCache = new TTLCache('geo-reverse', GEO_CACHE_TTL, MAX_CACHE_ENTRIES);
 const cityResolveCache = new TTLCache('city-forward', GEO_CACHE_TTL, MAX_CACHE_ENTRIES);
 const dataCache = new TTLCache('environmental-data', CACHE_TTL, MAX_CACHE_ENTRIES);
+const geoipCache = new TTLCache('geoip', GEO_CACHE_TTL, MAX_CACHE_ENTRIES);
 
 // ─── HTTP Fetch Helper (zero deps) ─────────────────────────────────────────
 
@@ -462,6 +464,86 @@ async function performScan(lat, lon, location) {
   return result;
 }
 
+// ─── GeoIP Utilities ────────────────────────────────────────────────────────
+
+/**
+ * Extract the real client IP from the request.
+ * Priority: Fly-Client-IP → X-Forwarded-For (first entry) → X-Real-IP → socket
+ * Handles Fly.io, Cloudflare, nginx, and other reverse proxies.
+ */
+function getClientIP(req) {
+  // Fly.io sets this to the true client IP
+  const flyClientIP = req.headers['fly-client-ip'];
+  if (flyClientIP) return flyClientIP.trim();
+
+  // Standard proxy header — first entry is the original client
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) {
+    const first = xff.split(',')[0].trim();
+    if (first) return first;
+  }
+
+  // Nginx-style header
+  const realIP = req.headers['x-real-ip'];
+  if (realIP) return realIP.trim();
+
+  // Direct connection fallback
+  const addr = req.socket?.remoteAddress || '';
+  // Strip IPv6-mapped IPv4 prefix (::ffff:1.2.3.4 → 1.2.3.4)
+  return addr.replace(/^::ffff:/, '');
+}
+
+/**
+ * Determine if an IP is a private/localhost address.
+ */
+function isPrivateIP(ip) {
+  return (
+    ip === '127.0.0.1' ||
+    ip === '::1' ||
+    ip === 'localhost' ||
+    ip.startsWith('10.') ||
+    ip.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(ip)
+  );
+}
+
+/**
+ * Look up geolocation for an IP address using ip-api.com (free, no key).
+ * Returns lat, lon, city, region, country, timezone, isp, etc.
+ */
+async function geoipLookup(ip) {
+  const cached = geoipCache.get(ip);
+  if (cached) return cached;
+
+  // ip-api.com free tier: 45 req/min, HTTP only (HTTPS requires paid plan)
+  const apiUrl = `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query`;
+
+  const data = await fetch(apiUrl, 5000);
+
+  if (data.status !== 'success') {
+    throw new Error(data.message || 'GeoIP lookup failed');
+  }
+
+  const result = {
+    ip: data.query,
+    lat: data.lat,
+    lon: data.lon,
+    city: data.city || 'Unknown',
+    region: data.regionName || '',
+    regionCode: data.region || '',
+    country: data.country || '',
+    countryCode: data.countryCode || '',
+    zip: data.zip || '',
+    timezone: data.timezone || '',
+    isp: data.isp || '',
+    org: data.org || '',
+    as: data.as || ''
+  };
+
+  geoipCache.set(ip, result);
+  return result;
+}
+
 // ─── HTTP Server & Routing ──────────────────────────────────────────────────
 
 function sendJSON(res, statusCode, data) {
@@ -516,13 +598,44 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // ── GET /geoip ──
+    if (req.method === 'GET' && pathname === '/geoip') {
+      const clientIP = getClientIP(req);
+
+      if (!clientIP || isPrivateIP(clientIP)) {
+        return sendJSON(res, 200, {
+          warning: 'Private or localhost IP detected — geolocation unavailable',
+          ip: clientIP || 'unknown',
+          source: req.headers['fly-client-ip'] ? 'fly-client-ip' : 
+                  req.headers['x-forwarded-for'] ? 'x-forwarded-for' : 
+                  req.headers['x-real-ip'] ? 'x-real-ip' : 'socket',
+          hint: 'Deploy behind a reverse proxy or on Fly.io for real client IPs',
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      try {
+        const geo = await geoipLookup(clientIP);
+        return sendJSON(res, 200, {
+          ...geo,
+          source: req.headers['fly-client-ip'] ? 'fly-client-ip' : 
+                  req.headers['x-forwarded-for'] ? 'x-forwarded-for' : 
+                  req.headers['x-real-ip'] ? 'x-real-ip' : 'socket',
+          timestamp: new Date().toISOString()
+        });
+      } catch (err) {
+        return sendError(res, 502, 'GeoIP lookup failed', err.message);
+      }
+    }
+
     // ── GET /cache/stats ──
     if (req.method === 'GET' && pathname === '/cache/stats') {
       return sendJSON(res, 200, {
         caches: [
           geoCache.stats(),
           cityResolveCache.stats(),
-          dataCache.stats()
+          dataCache.stats(),
+          geoipCache.stats()
         ],
         timestamp: new Date().toISOString()
       });
@@ -530,7 +643,7 @@ const server = http.createServer(async (req, res) => {
 
     // ── DELETE /cache ──
     if (req.method === 'DELETE' && pathname === '/cache') {
-      const flushed = geoCache.flush() + cityResolveCache.flush() + dataCache.flush();
+      const flushed = geoCache.flush() + cityResolveCache.flush() + dataCache.flush() + geoipCache.flush();
       return sendJSON(res, 200, {
         message: 'All caches flushed',
         flushedEntries: flushed,
@@ -587,6 +700,7 @@ const server = http.createServer(async (req, res) => {
       available_endpoints: [
         'GET /scan?lat=XX&lon=YY',
         'GET /scan?city=NAME',
+        'GET /geoip',
         'GET /health',
         'GET /cache/stats',
         'DELETE /cache'
@@ -614,6 +728,7 @@ server.listen(PORT, () => {
   ├─────────────────────────────────────────────┤
   │  GET /scan?lat=45.5&lon=-73.6               │
   │  GET /scan?city=Montreal                    │
+  │  GET /geoip                                 │
   │  GET /health                                │
   │  GET /cache/stats                           │
   │  DELETE /cache                              │
