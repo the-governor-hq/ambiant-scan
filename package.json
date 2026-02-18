@@ -1,0 +1,24 @@
+{
+  "name": "@the-governor-hq/ambiant-scan",
+  "version": "1.0.0",
+  "description": "Zero-dependency environmental scraper & modeler — temperature, air quality, UV index and more",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "environment",
+    "weather",
+    "air-quality",
+    "uv-index",
+    "scraper",
+    "zero-dependency"
+  ],
+  "author": "The Governor HQ",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {}
+}
