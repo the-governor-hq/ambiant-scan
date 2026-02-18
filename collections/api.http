@@ -1,0 +1,71 @@
+###############################################################################
+# Ambiant Scan — API Requests
+# Zero-Dependency Environmental Scraper & Modeler — The Governor HQ
+#
+# Usage:
+#   VS Code: Install "REST Client" extension (humao.rest-client)
+#   JetBrains: Built-in HTTP Client support
+#
+# Switch environments by changing @base_url below.
+###############################################################################
+
+@base_url = http://localhost:3400
+# @base_url = https://ambiant-scan.fly.dev
+
+###############################################################################
+# SCAN — Environmental Data
+###############################################################################
+
+### Scan by Coordinates (Montreal)
+GET {{base_url}}/scan?lat=45.50&lon=-73.57
+
+### Scan by City — Montreal
+GET {{base_url}}/scan?city=Montreal
+
+### Scan by City — Tokyo
+GET {{base_url}}/scan?city=Tokyo
+
+### Scan by City — London
+GET {{base_url}}/scan?city=London
+
+### Scan by City — New York
+GET {{base_url}}/scan?city=New%20York
+
+### Scan by City — Sydney
+GET {{base_url}}/scan?city=Sydney
+
+###############################################################################
+# GEOIP — Caller Geolocation
+###############################################################################
+
+### GeoIP — Auto Detect (will show private IP warning on localhost)
+GET {{base_url}}/geoip
+
+### GeoIP — Simulate Fly.io header (Montreal IP)
+GET {{base_url}}/geoip
+Fly-Client-IP: 24.48.0.1
+
+### GeoIP — Simulate Fly.io header (Paris IP)
+GET {{base_url}}/geoip
+Fly-Client-IP: 2.0.0.1
+
+### GeoIP — Simulate X-Forwarded-For multi-hop (Google DNS)
+GET {{base_url}}/geoip
+X-Forwarded-For: 8.8.8.8, 10.0.0.1
+
+### GeoIP — Simulate X-Real-IP (Cloudflare DNS)
+GET {{base_url}}/geoip
+X-Real-IP: 1.1.1.1
+
+###############################################################################
+# SYSTEM — Health & Cache
+###############################################################################
+
+### Health Check
+GET {{base_url}}/health
+
+### Cache Statistics
+GET {{base_url}}/cache/stats
+
+### Flush All Caches
+DELETE {{base_url}}/cache

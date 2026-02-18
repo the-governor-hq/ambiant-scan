@@ -1,17 +1,20 @@
 # 🌍 Ambiant Scan
 
-**Zero-Dependency single-file Environmental Scraper & Modeler**
+**Zero-Dependency single-file Environmental Scraper & Modeler**  
+Part of **The Governor HQ** Suite
 
-A single-file Node.js  that scrapes legitimate free APIs and returns normalized environmental data: temperature, air quality, UV index, humidity, wind, atmospheric pressure, and more.
+A single-file Node.js server that scrapes legitimate free APIs and returns normalized environmental data: temperature, air quality, UV index, humidity, wind, atmospheric pressure, geolocation, and more.
 
 ## Features
 
 - **Zero dependencies** — just `node server.js`
 - **GPS → City → Cache → Query** pipeline for performance
-- **3-tier LRU cache** with TTL (geo, city-resolve, data)
+- **GeoIP endpoint** — auto-detect caller position from IP (proxy-aware)
+- **4-tier LRU cache** with TTL (geo, city-resolve, data, geoip)
 - **Coordinate grid snapping** (~1.1km) — nearby requests share cache entries
 - **Parallel API fetching** — weather + air quality fetched simultaneously
 - **Graceful degradation** — returns partial data if one source is down
+- **Fly.io ready** — respects `Fly-Client-IP`, `X-Forwarded-For`, `X-Real-IP`
 - **CORS enabled** — query from any frontend
 
 ## Data Sources
@@ -20,6 +23,7 @@ A single-file Node.js  that scrapes legitimate free APIs and returns normalized 
 |--------|------|---------|
 | [Open-Meteo](https://open-meteo.com/) | Weather, UV, Air Quality | ❌ Not required |
 | [BigDataCloud](https://www.bigdatacloud.com/) | Reverse Geocoding | ❌ Not required |
+| [ip-api.com](http://ip-api.com/) | GeoIP (IP → location) | ❌ Not required |
 
 ## Quick Start
 
@@ -29,6 +33,8 @@ node server.js
 ```
 
 Server starts on `http://localhost:3400`
+
+> **API Collections** for fast testing are included — see [API Collections](#api-collections) below.
 
 ## API
 
@@ -48,19 +54,68 @@ Scan by city name.
 curl "http://localhost:3400/scan?city=Montreal"
 ```
 
+### `GET /geoip`
+
+Returns the caller's geolocation based on their IP address. Handles reverse proxies automatically.
+
+```bash
+curl "http://localhost:3400/geoip"
+```
+
+**Behind a proxy / Fly.io:**
+```bash
+# Simulating Fly.io header locally:
+curl -H "Fly-Client-IP: 24.48.0.1" "http://localhost:3400/geoip"
+```
+
+<details>
+<summary>Example response</summary>
+
+```json
+{
+  "ip": "24.48.0.1",
+  "lat": 45.6085,
+  "lon": -73.5493,
+  "city": "Montreal",
+  "region": "Quebec",
+  "regionCode": "QC",
+  "country": "Canada",
+  "countryCode": "CA",
+  "zip": "H1K",
+  "timezone": "America/Toronto",
+  "isp": "Le Groupe Videotron Ltee",
+  "org": "Videotron Ltee",
+  "as": "AS5769 Videotron Ltee",
+  "source": "fly-client-ip",
+  "timestamp": "2026-02-18T20:36:13.181Z"
+}
+```
+</details>
+
+**IP Resolution Priority:**
+
+| Priority | Header | Set by |
+|----------|--------|--------|
+| 1 | `Fly-Client-IP` | Fly.io edge proxy |
+| 2 | `X-Forwarded-For` (first entry) | Most reverse proxies |
+| 3 | `X-Real-IP` | Nginx |
+| 4 | `socket.remoteAddress` | Direct connection |
+
+> On localhost, returns a helpful warning since private IPs can't be geolocated.
+
 ### `GET /health`
 
 Health check.
 
 ### `GET /cache/stats`
 
-View cache hit rates and entry counts.
+View cache hit rates and entry counts for all 4 caches.
 
 ### `DELETE /cache`
 
 Flush all caches.
 
-## Response Shape
+## Response Shape (`/scan`)
 
 ```json
 {
@@ -148,6 +203,9 @@ Flush all caches.
 
 ```
 Request
+  ├── /geoip
+  │     └── geoipCache (24h TTL) → IP geolocation
+  │
   ├── ?city=Montreal
   │     └── cityResolveCache (24h TTL) → lat/lon
   │
@@ -160,6 +218,27 @@ Request
         └── MISS → parallel fetch [weather + air quality]
                      → model → cache → return
 ```
+
+## API Collections
+
+Pre-built collection files for fast testing are included in the `collections/` folder:
+
+| File | Client |
+|------|--------|
+| `collections/insomnia.json` | [Insomnia](https://insomnia.rest/) — Import via Application → Import |
+| `collections/postman.json` | [Postman](https://www.postman.com/) — Import via File → Import |
+| `collections/api.http` | VS Code [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) / JetBrains HTTP Client |
+
+All collections use a `base_url` variable (default `http://localhost:3400`) so you can switch between local and production.
+
+## Deployment (Fly.io)
+
+```bash
+fly launch        # first time
+fly deploy        # subsequent deploys
+```
+
+The included `fly.toml` is pre-configured. The `/geoip` endpoint works automatically on Fly.io — the `Fly-Client-IP` header is set by the edge proxy.
 
 ## License
 

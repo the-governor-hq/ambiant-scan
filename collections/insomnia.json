@@ -1,0 +1,190 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-02-18T00:00:00.000Z",
+  "__export_source": "insomnia.importers:v0.1.0",
+  "resources": [
+    {
+      "_id": "wrk_ambiant_scan",
+      "parentId": null,
+      "_type": "workspace",
+      "name": "Ambiant Scan",
+      "description": "Zero-Dependency Environmental Scraper & Modeler — The Governor HQ",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "parentId": "wrk_ambiant_scan",
+      "_type": "environment",
+      "name": "Local",
+      "data": {
+        "base_url": "http://localhost:3400"
+      },
+      "isPrivate": false
+    },
+    {
+      "_id": "env_prod",
+      "parentId": "env_base",
+      "_type": "environment",
+      "name": "Production (Fly.io)",
+      "data": {
+        "base_url": "https://ambiant-scan.fly.dev"
+      },
+      "isPrivate": false
+    },
+    {
+      "_id": "fld_scan",
+      "parentId": "wrk_ambiant_scan",
+      "_type": "request_group",
+      "name": "Scan",
+      "description": "Environmental scan endpoints"
+    },
+    {
+      "_id": "fld_geoip",
+      "parentId": "wrk_ambiant_scan",
+      "_type": "request_group",
+      "name": "GeoIP",
+      "description": "IP-based geolocation"
+    },
+    {
+      "_id": "fld_system",
+      "parentId": "wrk_ambiant_scan",
+      "_type": "request_group",
+      "name": "System",
+      "description": "Health, cache, and admin endpoints"
+    },
+    {
+      "_id": "req_scan_coords",
+      "parentId": "fld_scan",
+      "_type": "request",
+      "name": "Scan by Coordinates",
+      "description": "Full environmental scan using GPS coordinates",
+      "method": "GET",
+      "url": "{{ _.base_url }}/scan",
+      "parameters": [
+        { "name": "lat", "value": "45.50", "disabled": false },
+        { "name": "lon", "value": "-73.57", "disabled": false }
+      ],
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_scan_city",
+      "parentId": "fld_scan",
+      "_type": "request",
+      "name": "Scan by City",
+      "description": "Full environmental scan using city name",
+      "method": "GET",
+      "url": "{{ _.base_url }}/scan",
+      "parameters": [
+        { "name": "city", "value": "Montreal", "disabled": false }
+      ],
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_scan_city_tokyo",
+      "parentId": "fld_scan",
+      "_type": "request",
+      "name": "Scan — Tokyo",
+      "description": "Example: scan Tokyo",
+      "method": "GET",
+      "url": "{{ _.base_url }}/scan",
+      "parameters": [
+        { "name": "city", "value": "Tokyo", "disabled": false }
+      ],
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_scan_city_london",
+      "parentId": "fld_scan",
+      "_type": "request",
+      "name": "Scan — London",
+      "description": "Example: scan London",
+      "method": "GET",
+      "url": "{{ _.base_url }}/scan",
+      "parameters": [
+        { "name": "city", "value": "London", "disabled": false }
+      ],
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_geoip",
+      "parentId": "fld_geoip",
+      "_type": "request",
+      "name": "GeoIP — Auto Detect",
+      "description": "Returns caller geolocation based on IP. Uses Fly-Client-IP, X-Forwarded-For, or socket IP.",
+      "method": "GET",
+      "url": "{{ _.base_url }}/geoip",
+      "parameters": [],
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_geoip_fly",
+      "parentId": "fld_geoip",
+      "_type": "request",
+      "name": "GeoIP — Simulate Fly.io (Montreal)",
+      "description": "Simulate a Fly.io proxied request with a Canadian IP",
+      "method": "GET",
+      "url": "{{ _.base_url }}/geoip",
+      "parameters": [],
+      "headers": [
+        { "name": "Fly-Client-IP", "value": "24.48.0.1", "disabled": false }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_geoip_xff",
+      "parentId": "fld_geoip",
+      "_type": "request",
+      "name": "GeoIP — Simulate X-Forwarded-For",
+      "description": "Simulate multi-hop proxy with X-Forwarded-For (Google DNS IP)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/geoip",
+      "parameters": [],
+      "headers": [
+        { "name": "X-Forwarded-For", "value": "8.8.8.8, 10.0.0.1", "disabled": false }
+      ],
+      "body": {}
+    },
+    {
+      "_id": "req_health",
+      "parentId": "fld_system",
+      "_type": "request",
+      "name": "Health Check",
+      "description": "Server health and uptime",
+      "method": "GET",
+      "url": "{{ _.base_url }}/health",
+      "parameters": [],
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_cache_stats",
+      "parentId": "fld_system",
+      "_type": "request",
+      "name": "Cache Stats",
+      "description": "View hit rates and entry counts for all caches",
+      "method": "GET",
+      "url": "{{ _.base_url }}/cache/stats",
+      "parameters": [],
+      "headers": [],
+      "body": {}
+    },
+    {
+      "_id": "req_cache_flush",
+      "parentId": "fld_system",
+      "_type": "request",
+      "name": "Flush All Caches",
+      "description": "Clear all cached data (geo, city, environmental, geoip)",
+      "method": "DELETE",
+      "url": "{{ _.base_url }}/cache",
+      "parameters": [],
+      "headers": [],
+      "body": {}
+    }
+  ]
+}
